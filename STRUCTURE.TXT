@@ -1,0 +1,22 @@
+
+MAIN LOOP:
+--------------------------------------------------------------------------------
+1) Only tasks that have no timing requirement.
+
+Tasks:
+1) PID Evaluation
+
+
+
+INTERUPTS:
+--------------------------------------------------------------------------------
+
+
+Tasks:
+1) PWM - clock driven
+    PWM analog value states for each pwm controlled device
+    Each digital output is re-evaluated on interupt
+
+
+
+
