@@ -27,34 +27,57 @@
  *
  *
  */
-#define RIGHT 1
-#define TOP 2
-#define LEFT 0
-#define BOTTOM 3
 
-int adc_pin = 0;
-int adc_val[6] = {0,0,0,0,0,0};
-int analogVal;
+#define RIGHTLEFT 0
+#define TOPBOTTOM 1
+#define NE 2
+#define NW 3
+#define SE 4
+#define SW 5
+
+#define MAX_DEFECT_POINTS 1000
+
+volatile int state = 0;
+volatile int distance = 0;
+volatile int defect_array_index;
+
+volatile int at_left = 0;
+volatile int at_right = 0;
+volatile int at_top = 0;
+volatile int at_bottom = 0;
+
+volatile int NE_defect = 0;
+volatile int NW_defect = 0;
+volatile int SE_defect = 0;
+volatile int SW_defect = 0;
+
+volatile int adc_pin = 0;
+volatile int adc_val[6] = {0,0,0,0,0,0};
+
+const char[NUM_MESSAGES][] = {
+    "\nCurrent Stage: ",
+    "\nNot at Top"};
 
 void setup () {
     setup_adc();
-    adc_pin = 0;
+    setup_motors();
+
+    state = 0;
+
     Serial.begin(9600);
 }
 
 void loop() {
   delay(500);
-  /*
-  Serial.print("\nval0: ");
+  Serial.print(";\nval0: ");
   Serial.print(adc_val[0], DEC);
-  Serial.print("\nval1: ");
+  Serial.print(";  val1: ");
   Serial.print(adc_val[1], DEC);
-  Serial.print("\nval2: ");
+  Serial.print(";  val2: ");
   Serial.print(adc_val[2], DEC);
-  Serial.print("\nval3: ");
+  Serial.print(";  val3: ");
   Serial.print(adc_val[3], DEC);
-  */
-    if (adc_val[LEFT] > (1500 + adc_val[RIGHT])) {
+  /*  if (adc_val[LEFT] > (1500 + adc_val[RIGHT])) {
         Serial.print("Left Edge\n");
     }
     if (adc_val[RIGHT] > (1500 + adc_val[LEFT])) {
@@ -66,23 +89,54 @@ void loop() {
     if (adc_val[TOP] > (1500 + adc_val[BOTTOM])) {
         Serial.print("Top Edge\n");
     }
-    
+    */
 }
 
 ISR(ADC_vect)
 {
-    analogVal = (ADCL | (ADCH << 8)) << 4;
-    adc_val[adc_pin] += (analogVal >> 2) - (adc_val[adc_pin] >> 2);
+    int analogVal = (ADCL | (ADCH << 8)) << 4;
+    int curr_adc_pin = adc_pin;
+    adc_pin = (adc_pin + 1) % 6;
 
-    adc_pin = (adc_pin + 1) % 4;
-    
+    // Start the next ADC
     ADMUX &= B11110000;
     ADMUX |= adc_pin;
     ADCSRA |= B01000000;
+    
+    adc_val[curr_adc_pin] += (analogVal >> 2) - (adc_val[curr_adc_pin] >> 2);
+
+    // Update things that use ADC values
+    switch (curr_adc_pin) {
+        case TOPBOTTOM:
+            at_top    = (adc_val[TOPBOTTOM] > upper_threshold);
+            at_bottom = (adc_val[TOPBOTTOM] < lower_threshold);
+            break;
+        case 
+}
+
+void setup_motors() {
+    distance = 0;
+
+    pinMode(L_EN, OUTPUT);
+    pinMode(L_SP, OUTPUT);
+    pinMode(R_EN, OUTPUT);
+    pinMode(R_SP, OUTPUT);
+    pinMode(T_EN, OUTPUT);
+    pinMode(T_SP, OUTPUT);
+    pinMode(B_EN, OUTPUT);
+    pinMode(B_SP, OUTPUT);
+
+    pinMode(L_E1, OUTPUT);
+    pinMode(R_E1, OUTPUT);
+    pinMode(T_E1, OUTPUT);
+    pinMode(B_E1, OUTPUT);
+
 }
 
 void setup_adc() {
  
+    adc_pin = 0;
+
   // clear ADLAR in ADMUX (0x7C) to right-adjust the result
   // ADCL will contain lower 8 bits, ADCH upper 2 (in last two bits)
   ADMUX &= B11011111;
