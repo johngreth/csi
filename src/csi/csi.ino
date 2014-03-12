@@ -22,20 +22,48 @@
  *
  *
  * CREDIT:
- * Glenn Sweeney - ADC interupt code at 
+ * These sources were particularly helpful with figuring out the bare-bones
+ * arduino features that were needed to get this project working smoothly.
+ *
+ * Glenn Sweeney - ADC interupt 
  * http://www.glennsweeney.com/tutorials/interrupt-driven-analog-conversion-with-an-atmega328p
  *
+ * amandaghassaei - Timer interupt
+ * http://www.instructables.com/id/Arduino-Timer-Interrupts/
  *
  */
 
-#define RIGHTLEFT 0
-#define TOPBOTTOM 1
-#define NE 2
-#define NW 3
-#define SE 4
-#define SW 5
+// Analog pin defines
+#define RIGHTLEFT 4
+#define TOPBOTTOM 5
+#define NE 0
+#define NW 1
+#define SE 2
+#define SW 3
 
+// Digital pin defines
+#define ACCEL_L 4
+#define ACCEL_R 5
+#define L_E1 2
+#define T_E1 3
+#define LR_EN 7
+#define L_SP 6  // pwm
+#define LR_DIR 8
+#define R_SP 9  // pwm
+#define TB_EN 13
+#define T_SP 11 // pwm
+#define TB_DIR 12
+#define B_SP 10 // pwm
+
+// Constant defines
 #define MAX_DEFECT_POINTS 1000
+#define SPEED 192
+#define OFFSET 10
+
+#define TOP 0
+#define BOTTOM 1
+#define LEFT 2
+#define RIGHT 3
 
 volatile int state = 0;
 volatile int distance = 0;
@@ -54,42 +82,53 @@ volatile int SW_defect = 0;
 volatile int adc_pin = 0;
 volatile int adc_val[6] = {0,0,0,0,0,0};
 
-const char[NUM_MESSAGES][] = {
-    "\nCurrent Stage: ",
-    "\nNot at Top"};
+volatile int defect_points[4][MAX_DEFECT_POINTS];
 
 void setup () {
-    setup_adc();
-    setup_motors();
+    // PWM
+    TCNT0  = 0; OCR0A = 15; TCCR0A = (1 << WGM01);
+    TCCR0B = (1 << CS02) | (1 << CS00); TIMSK0 |= (1 << OCIE0A);
+    
+    // ADC
+    adc_pin = 0;
+    ADMUX |= B01000000; ADMUX &= B11010000; ADCSRA |= B11101111;
+    
+    // Motors
+    pinMode(L_EN, OUTPUT); pinMode(L_SP, OUTPUT);
+    pinMode(R_EN, OUTPUT); pinMode(R_SP, OUTPUT);
+    pinMode(T_EN, OUTPUT); pinMode(T_SP, OUTPUT);
+    pinMode(B_EN, OUTPUT); pinMode(B_SP, OUTPUT);
+    pinMode(L_E1, OUTPUT); pinMode(T_E1, OUTPUT);
+
+    attachInterrupt(0, enUD, CHANGE);
+    attachInterrupt(1, enLR, CHANGE);
 
     state = 0;
 
+    sei();
     Serial.begin(9600);
 }
 
 void loop() {
-  delay(500);
-  Serial.print(";\nval0: ");
-  Serial.print(adc_val[0], DEC);
-  Serial.print(";  val1: ");
-  Serial.print(adc_val[1], DEC);
-  Serial.print(";  val2: ");
-  Serial.print(adc_val[2], DEC);
-  Serial.print(";  val3: ");
-  Serial.print(adc_val[3], DEC);
-  /*  if (adc_val[LEFT] > (1500 + adc_val[RIGHT])) {
-        Serial.print("Left Edge\n");
+    // TODO: agregate defect data after up/down pass
+}
+
+void enUD() {
+    // TODO: Only needed as a sanity check, will implement later
+}
+
+void enLR() {
+    if (state % 3 == 0) {
+        distance += 1;
+        if (distance > ((3 * WIDTH / 2) + (WIDTH * state))) {
+            state += 1;
+            // TODO: make motors go in the right direction
+        }
     }
-    if (adc_val[RIGHT] > (1500 + adc_val[LEFT])) {
-        Serial.print("Right Edge\n");
-    }
-    if (adc_val[BOTTOM] > (1500 + adc_val[TOP])) {
-        Serial.print("Bottom Edge\n");
-    }
-    if (adc_val[TOP] > (1500 + adc_val[BOTTOM])) {
-        Serial.print("Top Edge\n");
-    }
-    */
+}
+
+ISR(TIMER0_COMPA_vect) {
+    // TODO: periodic tasks go here. Called at 1kHz.
 }
 
 ISR(ADC_vect)
@@ -99,71 +138,64 @@ ISR(ADC_vect)
     adc_pin = (adc_pin + 1) % 6;
 
     // Start the next ADC
-    ADMUX &= B11110000;
-    ADMUX |= adc_pin;
-    ADCSRA |= B01000000;
+    ADMUX &= B11110000; ADMUX |= adc_pin; ADCSRA |= B01000000;
     
     adc_val[curr_adc_pin] += (analogVal >> 2) - (adc_val[curr_adc_pin] >> 2);
 
     // Update things that use ADC values
     switch (curr_adc_pin) {
         case TOPBOTTOM:
-            at_top    = (adc_val[TOPBOTTOM] > upper_threshold);
-            at_bottom = (adc_val[TOPBOTTOM] < lower_threshold);
+            switch (state) {
+                case 0: // Moving right at top
+                    // TODO: TB ADC
+                break;
+                case 1: // Moving down
+                    // TODO: TB ADC
+                break;
+                case 2: // Moving left at bottom
+                    // TODO: TB ADC
+                break;
+                case 3: // Moving right at bottom
+                    // TODO: TB ADC
+                break;
+                case 4: // Moving up
+                    // TODO: TB ADC
+                break;
+                case 5: // Moving left at top
+                    // TODO: TB ADC
+                break;
+            }
             break;
-        case 
-}
-
-void setup_motors() {
-    distance = 0;
-
-    pinMode(L_EN, OUTPUT);
-    pinMode(L_SP, OUTPUT);
-    pinMode(R_EN, OUTPUT);
-    pinMode(R_SP, OUTPUT);
-    pinMode(T_EN, OUTPUT);
-    pinMode(T_SP, OUTPUT);
-    pinMode(B_EN, OUTPUT);
-    pinMode(B_SP, OUTPUT);
-
-    pinMode(L_E1, OUTPUT);
-    pinMode(R_E1, OUTPUT);
-    pinMode(T_E1, OUTPUT);
-    pinMode(B_E1, OUTPUT);
-
-}
-
-void setup_adc() {
- 
-    adc_pin = 0;
-
-  // clear ADLAR in ADMUX (0x7C) to right-adjust the result
-  // ADCL will contain lower 8 bits, ADCH upper 2 (in last two bits)
-  ADMUX &= B11011111;
-  
-  // Set REFS1..0 in ADMUX (0x7C) to change reference voltage to the
-  // proper source (01)
-  ADMUX |= B01000000;
-  
-  // Clear MUX3..0 in ADMUX (0x7C) in preparation for setting the analog
-  // input
-  ADMUX &= B11110000;
-  
-  // Set ADEN in ADCSRA (0x7A) to enable the ADC.
-  // Note, this instruction takes 12 ADC clocks to execute
-  // Set ADATE in ADCSRA (0x7A) to enable auto-triggering.
-  // Set the Prescaler to 128 (16000KHz/128 = 125KHz)
-  // Above 200KHz 10-bit results are not reliable.
-  // Set ADIE in ADCSRA (0x7A) to enable the ADC interrupt.
-  // Without this, the internal interrupt will not trigger.
-  ADCSRA |= B10101111;
-  
-  // Enable global interrupts
-  // AVR macro included in <avr/interrupts.h>, which the Arduino IDE
-  // supplies by default.
-  sei();
-  
-  // Set ADSC in ADCSRA (0x7A) to start the ADC conversion
-  ADCSRA |=B01000000;
+        case LEFTRIGHT:
+            switch (state) {
+                case 0: // Moving right at top
+                    // TODO: LR ADC
+                break;
+                case 1: // Moving down
+                    // TODO: LR ADC
+                break;
+                case 2: // Moving left at bottom
+                    // TODO: LR ADC
+                break;
+                case 3: // Moving right at bottom
+                    // TODO: LR ADC
+                break;
+                case 4: // Moving up
+                    // TODO: LR ADC
+                break;
+                case 5: // Moving left at top
+                    // TODO: LR ADC
+                break;
+            }
+            break;
+        default:
+            if (state % 3 == 1) {
+                if (defect_array_index < MAX_DEFECT_POINTS) {
+                    defect_points[curr_adc_pin][defect_array_index] = analogVal;
+                }
+                if (curr_adc_pin == 3)
+                    defect_array_index++;
+            }
+    }
 }
 
