@@ -96,6 +96,7 @@ volatile int defect_array_index = 0;
 
 volatile int adc_pin = 0;
 volatile unsigned long adc_val[6] = {0,0,0,0,0,0};
+volatile unsigned long raw_val[6] = {0,0,0,0,0,0};
 volatile unsigned long min_val[6] = {0,0,0,0,0,0};
 volatile unsigned long max_val[6] = {0,0,0,0,0,0};
 
@@ -343,13 +344,16 @@ ISR(ADC_vect)
 {
     unsigned long analogVal = (ADCL | (ADCH << 8)) << 4;
     int curr_adc_pin = adc_pin;
+    /*
     if (state % 9 == 5) adc_pin = TOPBOTTOM;
     else if (state % 9 == 8) adc_pin = LEFTRIGHT;
     else adc_pin = ACCEL;
-
+    */
+    adc_pin = (adc_pin + 1) % 6;
     // Start the next ADC
     ADMUX &= B11110000; ADMUX |= adc_pin; ADCSRA |= B01000000;
     
+    raw_val[curr_adc_pin] = analogVal;
     adc_val[curr_adc_pin] += (analogVal >> 6) - (adc_val[curr_adc_pin] >> 6);
     if (adc_val[curr_adc_pin] < min_val[curr_adc_pin]) 
         min_val[curr_adc_pin] = adc_val[curr_adc_pin];
