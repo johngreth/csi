@@ -70,24 +70,11 @@
 
 #define MAX_DEFECT_POINTS 1000
 
-#define HIGHSPEED 64
-#define LOWSPEED 25
-
-#define STALL_TORQUE 45
-
-#define UPHIGHSPEED 220
-#define UPLOWSPEED 170
-
-#define DOWNHIGHSPEED2 255
-#define DOWNLOWSPEED2 255
-#define DOWNHIGHSPEED1 150
-#define DOWNLOWSPEED1 150
-
 #define BUFFER 100
-#define WIDTH 450
-#define UPHEIGHT 4900
-#define DOWNHEIGHT 3500
-#define SLACK 20
+#define WIDTH 400
+#define UPHEIGHT 4600
+#define DOWNHEIGHT 3600
+#define SLACK 100
 
 #define PWMRES 15
 #define PWMFREQ 2
@@ -104,15 +91,14 @@ volatile int next_dist;
 volatile int adc_pin = 0;
 volatile unsigned int widths[6];
 volatile unsigned long adc_val[6] = {0,0,0,0,0,0};
-volatile unsigned long raw_val[6] = {0,0,0,0,0,0};
-volatile unsigned long min_val[6] = {0,0,0,0,0,0};
-volatile unsigned long max_val[6] = {0,0,0,0,0,0};
 
 volatile int defect_points[14][MAX_DEFECT_POINTS];
 
 volatile int pwm_out[14] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 volatile int pwmCtr = 0;
+
+volatile int printCtr = 0;
 
 void en_TB() { distance_TB++; }
 
@@ -229,21 +215,37 @@ void loop() {
         if ((state % 9 == 5) && (state % 9 == 8)) next_dist += SLACK;
     }
     
-    //if (state % 9 == 3) {
         delayMicroseconds(25000); 
         digitalWrite(13, HIGH);
         delayMicroseconds(25000);
         digitalWrite(13, LOW);
         
+    printCtr = (printCtr + 1) % 20;
+    
+    if (printCtr == 0) {
+        int xPos, yPos;
+        if ((st % 3) == 1) {
+            xPos = curr_width / 100;
+            if (st < 3) yPos = map(distance_LR, 0, DOWNHEIGHT, 28, 0);
+            else yPos = map(distance_LR, 0, UPHEIGHT, 0, 28);
+        }
+        else {
+            if ((st == 0) || (st == 5)) yPos = 28;
+            else yPos = 0;
+            if ((st % 3) == 0) xPos = distance_TB / 100;
+            else xPos = (curr_width - distance_TB) / 100;
+        }
         Serial.print("\nState: ");
         Serial.print(state);
-        Serial.print(" st: ");
-        Serial.print(st);
-        Serial.print("  D: ");
-        Serial.print(distance);
-        Serial.print("  ND: ");
-        Serial.print(next_dist);
-    //}
+        Serial.print(" x: ");
+        Serial.print(xPos);
+        Serial.print(" y: ");
+        Serial.print(yPos);
+        Serial.print(" LR: ");
+        Serial.print(adc_val[LEFTRIGHT]);
+        Serial.print(" TB: ");
+        Serial.print(adc_val[TOPBOTTOM]);
+    }
 }
 
 ISR(ADC_vect)
