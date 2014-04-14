@@ -32,28 +32,32 @@
  * http://www.instructables.com/id/Arduino-Timer-Interrupts/
  *
  */
-
+ /*
+#include "I2Cdev.h"
+#include "MPU6050.h"
+#include "Wire.h"
+*/
 #define DEBUG
 
 // Analog pin defines
 
 // left/right line tracking sensor pin
-#define LEFTRIGHT 1
+#define LEFTRIGHT 5
 
 // top/bottom line tracking sensor pin
-#define TOPBOTTOM 0
+#define TOPBOTTOM 6
 
 // Top-right color sensor pin
-#define NE 2
+#define NE 0
 
 // Bottom-left color sensor pin
-#define SW 3 
+#define SW 1 
 
 // Top-left color sensor pin
-#define NW 4
+#define NW 2
 
 // Bottom-right color sensor pin
-#define SE 5
+#define SE 3
 
 // Digital pin defines
 #define RX 0 // Reserved
@@ -85,6 +89,21 @@
 // Controls how often defect data is collected.
 #define COLOR_SCALAR 10
 
+// The factor to determine how agressively to filter the adc values
+#define FILTER 2
+
+// Use color sensing for edges
+#define COLOR_SENSE
+
+// Use ir for sensing edges
+// #define IR_SENSE
+
+// Values below which are an edge for the color sensor
+#define COLOR_EDGE 500
+
+// Values above which are a defect for the color sensor
+#define COLOR_DEFECT 1500
+
 // Values above this indicate being over the left edge.
 #define HIGH_THRESHOLD_LR 13000L
 #define LOW_THRESHOLD_LR 13000L
@@ -99,7 +118,7 @@
 #define MAX_DEFECT_POINTS 1000
 
 // Slow down for this number of encoder ticks before a turn.
-#define BUFFER 100
+#define BUFFER 1000
 
 // Width in encoder ticks of a defect.
 #define WIDTH 400
@@ -159,7 +178,27 @@ volatile int printCtr = 0;
 void en_TB() { distance_TB++; }
 void en_LR() { distance_LR++; }
 
+#define acc_scale_factor 16384 //16384 LSB/g
+#define gyro_scale_factor 65.5  //131 LSB/(degree/s)
+
+MPU6050 accelgyro;
+int16_t ax, ay, az; //define 3-axis accelerometer variables
+int16_t gx, gy, gz; //define 3-axis gyroscop variables
+double  yaw=0; //define angle parameters
+double dT=0, time=0; //define time parameters
+
 void setup () {
+  
+    #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
+        Wire.begin();
+    #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
+        Fastwire::setup(400, true);
+    #endif
+    accelgyro.initialize();
+    accelgyro.setRate(0);//set the sampling rate to be 1khz
+    accelgyro.setFullScaleGyroRange(MPU6050_GYRO_FS_500);//set gyro to be +-250
+    accelgyro.setDLPFMode(MPU6050_DLPF_BW_42);
+    
     // Stop interrupts
     cli();
     
@@ -222,7 +261,16 @@ void setup () {
     sei();
 }
 
-void loop() {
+void loop() { 
+    accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+    double accYaw = atan2(ay,ax)/PI*180;
+    double gyroz = -(double)gz/gyro_scale_factor; //convert the gyroscope data to angular velocity and invert
+    double gyro_dYaw = gyroz*dT;
+    
+    //comlementary filter
+    double acc_gyro_weight = dT/(dT+0.001);
+    yaw = acc_gyro_weight*(yaw+gyro_dYaw)+(1-acc_gyro_weight)*accYaw;
+  
     int sta = (state % 18);
     int st = sta / 3;
     
@@ -230,19 +278,34 @@ void loop() {
     int distance = distance_TB;
     // Moving up or down
     if (st % 3 == 1) distance = distance_LR;
-    
-    // If you are in the detecting state and an edge is detected, always go to the next state.
-    if (    ((state % 9  ==  8) && (adc_val[LEFTRIGHT] > HIGH_THRESHOLD_LR)) ||
-            ((state % 18 ==  5) && (adc_val[TOPBOTTOM] <  LOW_THRESHOLD_TB)) ||
-            ((state % 18 == 14) && (adc_val[TOPBOTTOM] > HIGH_THRESHOLD_TB))) {
-        next_dist = 0;
-        Serial.print("EDGE DETECTED");
-    }
+   
+    #ifdef IR_SENSE
+            // If you are in the detecting state and an edge is detected, always go to the next state.
+            if (    ((state % 9  ==  8) && (adc_val[LEFTRIGHT] > HIGH_THRESHOLD_LR)) ||
+                    ((state % 18 ==  5) && (adc_val[TOPBOTTOM] <  LOW_THRESHOLD_TB)) ||
+                    ((state % 18 == 14) && (adc_val[TOPBOTTOM] > HIGH_THRESHOLD_TB))) {
+                next_dist = 0;
+                Serial.print("\nEDGE DETECTED");
+            }
+    #endif
+    #ifdef COLOR_SENSE
+            // If you are in the detecting state and an edge is detected, always go to the next state.
+            if (    ((state % 9  ==  8) && (adc_val[SW] < COLOR_EDGE)) ||
+                    ((state % 18 ==  5) && (adc_val[NE] < COLOR_EDGE)) ||
+                    ((state % 18 == 14) && (adc_val[TOPBOTTOM] > HIGH_THRESHOLD_TB))) {
+                next_dist = 0;
+                Serial.print("\nEDGE DETECTED");
+            }
+    #endif
     
     // It is time to go to the next state
     if (distance > next_dist) {
+        if ((state % 3 == 2) && (next_dist != 0))
+            Serial.print("\nEDGE MISSED");
         state++;
         
+        if ((state % 3 == 2))
+            Serial.print("\nLOOKING FOR EDGE");
         sta = (state % 18);
         st = sta / 3;
         
@@ -253,33 +316,33 @@ void loop() {
         if (state % 3 == 0) { distance_TB = 0; distance_LR = 0; }
         
         // Reset the motor speeds to stationary
-        pwm_out[L2] = 255;
-        pwm_out[R2] = 255;
-        pwm_out[LR1] = 240;
-        pwm_out[TB1] = 0;
-        pwm_out[TB2] = 0;
+        pwm_out[L2] = 240;
+        pwm_out[R2] = 240;
+        pwm_out[LR1] = 225;
+        pwm_out[TB1] = 255;
+        pwm_out[TB2] = 255;
         
         switch (st) {
             // Moving right.
             case 0: case 3: 
-                pwm_out[TB2] = 80;
+                pwm_out[TB1] = 180;
             break;
             
             // Moving Left.
             case 2: case 5: 
-                pwm_out[TB1] = 60;
+                pwm_out[TB2] = 180;
             break;
             
             // Moving down.
             case 1:
                 pwm_out[LR1] = 255;
-                pwm_out[L2] = 240;
-                pwm_out[R2] = 240;
+                pwm_out[L2] = 230;
+                pwm_out[R2] = 230;
             break;
                 
             // Moving up.
             case 4:
-                pwm_out[LR1] = 100;
+                pwm_out[LR1] = 85;
             break;
         }
         
@@ -309,6 +372,15 @@ void loop() {
         // Set the failsafe in case it misses the edge.
         if ((state % 9 == 5) && (state % 9 == 8)) next_dist += SLACK;
     }
+
+    int corrected_value = pwm_out[R2];
+
+    // PUT THE TILT CORRECTION HERE.
+    // corrected_value starts out as the value that makes the robot go
+    // straight. yaw is the angle from the IMU. Modify corrected_value to 
+    // create a correction in the robot's dirrection
+
+    analogWrite(R2, corrected_value);
     
     // delay 50 ms and blink the light.
     delayMicroseconds(25000); 
@@ -348,10 +420,15 @@ void loop() {
         Serial.print(xPos);
         Serial.print(" y: ");
         Serial.print(yPos);
-        Serial.print(" LR: ");
-        Serial.print(adc_val[LEFTRIGHT]);
-        Serial.print(" TB: ");
-        Serial.print(adc_val[TOPBOTTOM]);
+        Serial.print(" NE: ");
+        Serial.print(adc_val[NE]);
+        Serial.print(" NW: ");
+        Serial.print(adc_val[NW]);
+        Serial.print(" SE: ");
+        Serial.print(adc_val[SE]);
+        Serial.print(" SW: ");
+        Serial.print(adc_val[SW]);
+        
     }
 }
 
@@ -362,10 +439,10 @@ ISR(ADC_vect)
     unsigned long analogVal = (ADCL | (ADCH << 8)) << 4;
     
     // Add the new value to the rolling exponential buffer for that pin.
-    adc_val[adc_pin] += (analogVal >> 6) - (adc_val[adc_pin] >> 6);
+    adc_val[adc_pin] += (analogVal >> FILTER) - (adc_val[adc_pin] >> FILTER);
     
     // Set the next ADC conversion to happen.
-    adc_pin = (adc_pin + 1) % 6;
+    adc_pin = (adc_pin + 1) % 4;
     
     // Start the next analog-digital conversion
     ADMUX &= B11110000; ADMUX |= adc_pin; ADCSRA |= B01000000;
