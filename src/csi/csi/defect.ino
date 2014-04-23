@@ -1,6 +1,6 @@
 
 // Values below which are an edge for the color sensor
-#define COLOR_EDGE 125000L
+#define COLOR_EDGE 115000L
 
 // Values above which are a defect for the color sensor
 #define COLOR_DEFECT 40000L

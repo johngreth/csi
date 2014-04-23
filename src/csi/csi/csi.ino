@@ -73,7 +73,7 @@
 #define WIDTH 770
 
 // Number of encoder ticks going from bottom to top
-#define UPHEIGHT 675
+#define UPHEIGHT 690
 
 // Number of encoder ticks going from top to bottom
 #define DOWNHEIGHT 550
@@ -91,7 +91,7 @@ int curr_width;
 int defects[81];
 
 // The x position of each pass.
-int widths[] = {1*WIDTH/2, 3*WIDTH/2, 9*WIDTH/2, 11*WIDTH/2, 13*WIDTH/2};
+int widths[] = {50+1*WIDTH/2, 50+3*WIDTH/2, 9*WIDTH/2, 11*WIDTH/2, 13*WIDTH/2};
 int x_pos[] = {0, 1, 4, 5, 6};
 
 // The pwm values for each pin. 
