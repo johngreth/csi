@@ -1,16 +1,23 @@
 
 // Values below which are an edge for the color sensor
-#define COLOR_EDGE 115000L
+#define COLOR_EDGE_L 115000L
+#define COLOR_EDGE_R 100000L
 
 // Values above which are a defect for the color sensor
 #define COLOR_DEFECT 40000L
 
 #define NUM_TIMES 4
 
+#define BUCKETS 5
+
+byte data[4][7*BUCKETS*2];
+
+int last_dist;
+
 boolean last[] = {false, false, false, false};
 byte idx[] = {0, 0, 0, 0};
 unsigned long latest_time[] = {0, 0, 0, 0};
-byte pin[] = {NE, NW, SA, SW};
+const byte pin[] = {NE, NW, SA, SW};
 unsigned long times[4][NUM_TIMES];
 byte valid[4][NUM_TIMES];
 
@@ -26,6 +33,11 @@ unsigned long get_color_val(byte i) {
 void update_colors(unsigned long time) {
     if (button_ctr != 0) button_ctr--;
     if (get_adc(1) > 8000L) button_ctr = 100;
+    byte bucket = 0;
+    int dist = get_dist();
+    if (cycle_state == 4) bucket = map(dist, 0, DOWNHEIGHT, 0, 7);
+    else bucket = map(get_dist(), UPHEIGHT, 0, 0, 7);
+    if (bucket >= 7*BUCKETS*2) bucket = 7*BUCKETS*2 - 1;
     boolean next;
     int i;
     for (i = 0; i < 4; i++) {
@@ -34,7 +46,7 @@ void update_colors(unsigned long time) {
             byte next_idx = (idx[i] + 1) % NUM_TIMES;
             times[i][idx[i]] = time;
             latest_time[i] = time - times[i][next_idx];
-            if (dT <= 400) mark_defect(i);
+            if (dT <= 400) mark_defect(i, dist);
             valid[i][idx[i]] = 1;
             idx[i] = next_idx;
         }
@@ -48,24 +60,51 @@ void update_colors(unsigned long time) {
     }
 }
 
-void mark_defect(byte id) {
+void mark_defect(byte id, int dist) {
     if (!valid[id][idx[id]]) return;
     int def = -1;
     if (latest_time[id] < COLOR_DEFECT) def = 1;
-    byte pos = x_pos[cycle];
-    int dist = get_dist();
-    if ((id == 0) || (id == 2)) pos += 2;
-    if ((id == 2) || (id == 3)) pos += 18;
     if (cycle_state == 4) {
-        if (dist > DOWNHEIGHT) return;
-        pos += 9 * map(dist, 0, DOWNHEIGHT, 0, 7);
-        defects[pos] += def;
+        byte pos = map(dist, 0, DOWNHEIGHT, 0, 7*BUCKETS);
+        if (pos >= 7*BUCKETS*2) return;
+        data[id][pos] += def;
+        last_dist = dist;
     }
     else if (cycle_state == 13) {
-        if (dist > UPHEIGHT) return;
-        pos += 9 * map(dist, UPHEIGHT, 0, 0, 7);
-        defects[pos] += def;
+        byte pos = map(dist, 0, UPHEIGHT, 0, 7*BUCKETS);
+        if (pos >= 7*BUCKETS*2) return;
+        data[id][pos] += def;
+        last_dist = dist;
     }
+}
+
+void set_defects() {
+    byte i, id;
+    for (i = 0; i < 7; i++) {
+        byte loc = (i << 1) | B00000001;
+        int cap_dist = DOWNHEIGHT;
+        if (cycle_state >= 9) { 
+            loc = 14 - loc; 
+            cap_dist = UPHEIGHT; 
+        }
+        byte cell = map(map(loc, 0, 14, 0, last_dist), 0, cap_dist, 0, 7*BUCKETS);
+        byte base_pos = (9 * i) + x_pos[cycle];
+        for (id = 0; id < 4; id++) {
+            byte pos = base_pos;
+            if ((id == 0) || (id == 2)) pos += 2;
+            if ((id == 2) || (id == 3)) pos += 18;
+            defects[pos] -= (128 + 128 + 128);
+            defects[pos] += data[id][cell-1];
+            defects[pos] += data[id][cell];
+            defects[pos] += data[id][cell+1];
+        }
+    }
+}
+
+void reset_defects() {
+    int i, j;
+    for (i = 0; i < 4; i++) for (j = 0; j < 7*BUCKETS*2; j++) data[i][j] = 128;
+    last_dist = 0;
 }
 
 byte button_pressed() {

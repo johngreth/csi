@@ -28,12 +28,12 @@ void increment_state() {
     abs_state++;
     cycle_state++;
     stage_state++;
+    if ((cycle_state == 6) || (cycle_state == 15)) send_data();
     if (stage_state == 3) {
         stage_state = 0;
         stage++;
         if ((stage == 3) || (stage == 6)) {
             cycle++;
-            send_data();
             if (stage == 6) {
                 stage = 0;
                 cycle_state = 0;

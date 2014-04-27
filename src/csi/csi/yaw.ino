@@ -35,10 +35,10 @@ void control_R2() {
         int dif = 0;
         if (sum > 255) {
             dif = sum - 255;
-            dif = dif * 3;
             sum = 255;
         }
-        analogWrite(R2, straight_value - dif);
+        analogWrite(LR1, pwm_out[LR1] - dif);
+        analogWrite(R2, straight_value - (dif * 4));
         analogWrite(L2, sum);
     }
     else {
@@ -46,10 +46,10 @@ void control_R2() {
         int dif = 0;
         if (sum > 255) {
             dif = sum - 255;
-            dif = dif * 3;
             sum = 255;
         }
-        analogWrite(L2, straight_value - dif); 
+        analogWrite(LR1, pwm_out[LR1] - dif);
+        analogWrite(L2, straight_value - (dif * 4)); 
         analogWrite(R2, sum);
     }
 }

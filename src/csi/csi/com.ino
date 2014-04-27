@@ -2,14 +2,15 @@
 byte packet[84];
 
 void send_data() {
+    set_defects();
     #ifdef DEBUG
     int i;
     for (i = 0; i < 81; i++) {
+        if (i % 9 == 0) Serial.print("\n");
         if (defects[i] == 10000) Serial.print(2);
         if (defects[i] >  10000) Serial.print(1);
         if (defects[i] <  10000) Serial.print(0);
         Serial.print(" ");
-        if (i % 9 == 8) Serial.print("\n");
     }
     #else
     int i;
@@ -29,6 +30,7 @@ void send_data() {
     packet[83] = -1;
     Serial.write(packet, 83);
     #endif
+    reset_defects();
 }
 
 

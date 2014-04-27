@@ -15,9 +15,10 @@ void setup () {
     sei();
     init_imu();
     adc_init();
+    reset_defects();
         
     #ifdef DEBUG
-    delay(5000);
+    while (Serial.read() == -1);
     #else
     started = 0;
     while (Serial.read() == -1);

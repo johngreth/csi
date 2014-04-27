@@ -1,7 +1,7 @@
 
 // Number of encoder ticks the robot is allowed to go beyond the expected value before it turns.
 // This is a failsafe in case the sensors miss the edges.
-#define SLACK 2000
+#define SLACK 4000
 #define UDSLACK 15
 
 volatile int distance_LR = 0;
@@ -42,9 +42,25 @@ void check_edge() {
             }
             break;
         case 8: case 17:
-            if (get_color_val(3) > COLOR_EDGE) {
-                next_dist = 0;
-                reset_dist();
+                if (abs_state < B00001111) {
+                    if (get_color_val(1) > COLOR_EDGE_L) {
+                        next_dist = 0;
+                        reset_dist();
+                    }
+                    if (get_color_val(3) > COLOR_EDGE_L) {
+                        next_dist = 0;
+                        reset_dist();
+                    }
+            }
+            else { /*
+                    if (get_color_val(0) > COLOR_EDGE_R) {
+                        next_dist = 0;
+                        reset_dist();
+                    } */
+                    if (get_color_val(2) > COLOR_EDGE_R) {
+                        next_dist = 0;
+                        reset_dist();
+                    }
             }
     }
 }
@@ -62,13 +78,19 @@ void set_speeds() {
             // Moving right.
             case 0: case 3: 
                 if (button_pressed()) pwm_out[LR1] = 50;
-                else pwm_out[TB2] = 190; 
+                else {
+                    if (abs_state < 15) pwm_out[TB2] = 190; 
+                    else pwm_out[TB1] = 190;
+                }
             break;
             
             // Moving Left.
             case 2: case 5: 
                 if (button_pressed()) pwm_out[LR1] = 50;
-                else pwm_out[TB1] = 190; 
+                else {
+                    if (abs_state < 15) pwm_out[TB1] = 190; 
+                    else pwm_out[TB2] = 190;
+                }
             break;
             
             // Moving up/down.
@@ -95,6 +117,7 @@ int get_next_dist() { return next_dist; }
 
 void set_next_dist() {
     next_dist = curr_width;
+    if ((stage == 5) && (cycle == 3)) next_dist = 50+11*WIDTH/2;
     if (stage_state == 0) next_dist -= BUFFER + BUFFER;
     
     // Moving slow. Starts looking for edges when it is close.
@@ -116,6 +139,9 @@ void set_next_dist() {
         reset_dist();
         next_dist = 0;
     }
+    
+    if (abs_state == 2)
+        next_dist += WIDTH + (WIDTH / 2) - 150;
     
     /*
     if ((stage == 1) || (stage == 4)) {
