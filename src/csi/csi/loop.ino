@@ -4,6 +4,7 @@ unsigned long last_time=0; //define time parameters
 void loop() { 
     unsigned long time = micros();
     dT = (time-last_time)/10;
+    if (dT < 500) bad_factor3++;
     last_time = time;
     
     update_yaw();

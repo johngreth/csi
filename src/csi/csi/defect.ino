@@ -1,14 +1,14 @@
 
 // Values below which are an edge for the color sensor
 #define COLOR_EDGE_L 115000L
-#define COLOR_EDGE_R 100000L
+#define COLOR_EDGE_R 110000L
 
 // Values above which are a defect for the color sensor
-#define COLOR_DEFECT 40000L
+#define COLOR_DEFECT 25000L
 
 #define NUM_TIMES 4
 
-#define BUCKETS 5
+#define BUCKETS 7
 
 byte data[4][7*BUCKETS*2];
 
@@ -46,7 +46,7 @@ void update_colors(unsigned long time) {
             byte next_idx = (idx[i] + 1) % NUM_TIMES;
             times[i][idx[i]] = time;
             latest_time[i] = time - times[i][next_idx];
-            if (dT <= 400) mark_defect(i, dist);
+            if (dT <= 500) mark_defect(i, dist);
             valid[i][idx[i]] = 1;
             idx[i] = next_idx;
         }

@@ -63,10 +63,12 @@ void debug() {
         Serial.print(abs_state);
         Serial.print(" Cycle_State: ");
         Serial.print(cycle_state);
+        Serial.print(" Cycle: ");
+        Serial.print(cycle);
         Serial.print(" Stage_State: ");
         Serial.print(stage_state);
         Serial.print(" Stage: ");
-        Serial.print(stage);
+        Serial.print(stage); 
         Serial.print(" dist: ");
         Serial.print(get_dist());
         Serial.print(" next_dist: ");
@@ -84,7 +86,7 @@ void debug() {
         Serial.print(" SW: ");
         Serial.print(get_color_val(3)); 
         Serial.print(" Yaw: ");
-        Serial.print(get_yaw());
+        Serial.print(get_yaw()); 
         Serial.print(" dT: ");
         Serial.print(dT); 
         Serial.print(" adc: ");
@@ -93,6 +95,14 @@ void debug() {
         Serial.print(get_adc(1));
         Serial.print(" ddT: ");
         Serial.print(ddT); 
+        Serial.print(" BF: ");
+        Serial.print(bad_factor);
+        Serial.print(" BF2: ");
+        Serial.print(bad_factor2); 
+        Serial.print(" BF3: ");
+        Serial.print(bad_factor3); 
+        Serial.print(" BF4: ");
+        Serial.print(bad_factor4); 
     } 
     if (printCtr == 1) ddT = dT;
     #endif

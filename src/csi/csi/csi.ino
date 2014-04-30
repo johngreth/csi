@@ -67,16 +67,16 @@
 // Constant defines
 
 // Slow down for this number of encoder ticks before a turn.
-#define BUFFER 1000
+#define BUFFER 750
 
 // Width in encoder ticks of a defect.
 #define WIDTH 750
 
 // Number of encoder ticks going from bottom to top
-#define UPHEIGHT 690
+#define UPHEIGHT 675
 
 // Number of encoder ticks going from top to bottom
-#define DOWNHEIGHT 550
+#define DOWNHEIGHT 555
 
 // The step that is currently being executed. Diagram on Google Drive.
 byte abs_state = 0;
@@ -100,5 +100,7 @@ byte pwm_out[14] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 signed long dT, ddT;
 
 byte started;
+
+signed long bad_factor, bad_factor1, bad_factor2, bad_factor3, bad_factor4, bad_factor5;
 
 

@@ -1,7 +1,7 @@
 
 // Number of encoder ticks the robot is allowed to go beyond the expected value before it turns.
 // This is a failsafe in case the sensors miss the edges.
-#define SLACK 4000
+#define SLACK 750
 #define UDSLACK 15
 
 volatile int distance_LR = 0;
@@ -32,17 +32,20 @@ void check_edge() {
         case 4: case 12:
             if (button_pressed()) {
                 next_dist = 0;
+                bad_factor4 = get_dist();
                 reset_dist();
             }
             break;
         case 3: case 13:
             if (get_adc(0) > 12500L) {
                 next_dist = 0;
+                bad_factor4 = get_dist();
                 reset_dist();
             }
             break;
         case 8: case 17:
                 if (abs_state < B00001111) {
+                    bad_factor2++;
                     if (get_color_val(1) > COLOR_EDGE_L) {
                         next_dist = 0;
                         reset_dist();
@@ -52,11 +55,12 @@ void check_edge() {
                         reset_dist();
                     }
             }
-            else { /*
+            else {
+                    bad_factor++;
                     if (get_color_val(0) > COLOR_EDGE_R) {
                         next_dist = 0;
                         reset_dist();
-                    } */
+                    }
                     if (get_color_val(2) > COLOR_EDGE_R) {
                         next_dist = 0;
                         reset_dist();
@@ -96,8 +100,8 @@ void set_speeds() {
             // Moving up/down.
             case 1: case 4:
                 if ((cycle_state & 1) == 0) { // Moving down
-                    pwm_out[L2] = 240;
-                    pwm_out[R2] = 240;
+                    pwm_out[L2] = 210;
+                    pwm_out[R2] = 210;
                     pwm_out[LR1] = 255;
                 }
                 else {
@@ -117,7 +121,7 @@ int get_next_dist() { return next_dist; }
 
 void set_next_dist() {
     next_dist = curr_width;
-    if ((stage == 5) && (cycle == 3)) next_dist = 50+11*WIDTH/2;
+    if ((stage == 5) && (cycle == 1)) next_dist = 50+11*WIDTH/2;
     if (stage_state == 0) next_dist -= BUFFER + BUFFER;
     
     // Moving slow. Starts looking for edges when it is close.

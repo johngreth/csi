@@ -6,6 +6,12 @@ void setup () {
     Serial.begin(9600);
     #endif
     
+    bad_factor = 0;
+    bad_factor2 = 0;
+    bad_factor3 = 0;
+    bad_factor4 = 0;
+    bad_factor5 = 0;
+    
     init_motors();
     init_state();
     
